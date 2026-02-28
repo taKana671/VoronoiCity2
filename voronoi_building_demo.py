@@ -103,7 +103,7 @@ class VoronoiCube(ShowBase):
 
 
         bnd = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
-        n = 30
+        n = 10
         pnts = np.random.rand(n, 2)
         self.create_buildings2(bnd, pnts)
         # self.points_in_convex_polygon()
@@ -192,334 +192,50 @@ class VoronoiCube(ShowBase):
                 model.reparent_to(self.render)
 
     def create_buildings2(self, bnd, pnts):
-        for region in BoundedVoronoiGenerator():
-            bnd = np.array([pt for pt in ConvexPolygonGenerator(region)])
-
-            for pts in BoundedVoronoiGenerator()
-        
-        
-        bnd = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
-        # n = 100
-        # pnts = np.random.rand(n, 2)
-        # pnts = np.random.randint(1, 20, (n, 2))
-
-        dummy_pts = np.array([[100, 100], [100, -100], [-100, 0]])
-        # dummy_pts = np.array([[1000, 1000], [1000, -1000], [-1000, 0]])
-        gn_pnts = np.concatenate([pnts, dummy_pts])
-
-        vor = Voronoi(gn_pnts)
-        bnd_poly = Polygon(bnd)
-        vor_polys = []
-
-        for i in range(len(gn_pnts) - 3):
-            vor_poly = [vor.vertices[v] for v in vor.regions[vor.point_region[i]]]
-
-            ########## cal area ##################
-            # area = ConvexHull(vor_poly).volume
-            # print(area)
-            ######################################
-
-            poly = Polygon(vor_poly)
-            shrunk_poly = poly.buffer(-0.02)
-
-            if shrunk_poly.is_empty:
-                continue
-
-            # i_cell = bnd_poly.intersection(Polygon(vor_poly))
-            i_cell = bnd_poly.intersection(shrunk_poly)
-            # vor_polys.append(list(i_cell.exterior.coords[:-1]))
-
-            li = list(i_cell.exterior.coords[:-1])
-            self.points_in_convex_polygon(li)
-            
-            # polygon = [np.array([*p, 0.0]) for p in li]
-            # sorted_pts = self.sort_counter_clockwise(polygon)
-
-            # h = random.randint(2, 20) / 100
-            # # print(h)
-
-            # model_creator = RandomPolygonalPrism(sorted_pts, height=h)
-            # model = model_creator.create()
-            # scale = 256
-            # model.set_scale(scale)
-            # # import pdb; pdb.set_trace()
-            # model.set_pos(Point3(*model_creator.center * scale))
-
-            # colors = [
-            #     LColor(1, 0, 0, 1),
-            #     LColor(0, 0, 1, 1),
-            #     LColor(1, 1, 0, 1),
-            #     LColor(0, 0.5, 0, 1),
-            #     LColor(1, 0.549, 0, 1),
-            #     LColor(1, 0, 1, 1),
-            #     LColor(0.501, 0, 0.501, 1),
-            #     LColor(0, 1, 0, 1),
-            #     LColor(0.54, 0.16, 0.88, 1),
-            #     LColor(0, 0.74, 1, 1)
-            # ]
-            # color = random.choice(colors)
-
-            # model.set_color(color)
-            # model.reparent_to(self.render)
-
-    def points_in_convex_polygon(self, bnd):
-        # bnd = np.array([[0.1, 0.4],[0.3, 0.2],[0.8, 0.3],[1.0, 0.6],[0.7, 0.7],[0.4, 0.7],[0.3, 0.6], [0.2, 0.5]])
-        # bnd = np.random.rand(8, 2)
-
-        bnd = np.array(bnd)
-        # n = random.randint(3, 6)
-        # n = 5
-        bndhull = ConvexHull(bnd)
-
-        area = bndhull.volume
-        # print(area)
-        if area < 0.01:
-            print(1, area)
-            n = 2
-        if area < 0.02:
-            print(2, area)
-            n = 2
-        elif area < 0.03:
-            print(3, area)
-            n = 3
-        elif area < 0.04:
-            print(4, area)
-            n = 4
-        elif area < 0.05:
-            print(5, area)
-            n = 5
-        elif area < 0.06:
-            print(6, area)
-            n = 6
-        elif area < 0.07:
-            print(7, area)
-            n = 7
-        elif area < 0.08:
-            print(8, area)
-            n = 8
-        elif area < 0.09:
-            print(9, area)
-            n = 9
-        else:
-            print(10, area)
-            n = 10
-
-
-        bndTmp = bndhull.equations
-        bndMat = np.matrix(bndTmp)
-        Abnd = np.array(bndMat[:, 0:2])
-        bbnd = np.array(bndMat[:, 2])
-
-        xmin = np.min(bnd[:, 0])
-        xmax = np.max(bnd[:, 0])
-        ymin = np.min(bnd[:, 1])
-        ymax = np.max(bnd[:, 1])
-
-        i = 0
-        pnts = []
-
-        while i < n:
-            pnt = np.random.rand(2)
-            pnt[0] = xmin + (xmax - xmin) * pnt[0]
-            pnt[1] = ymin + (ymax - ymin) * pnt[1]
-
-            if (np.round(np.dot(Abnd, pnt.transpose()), len(bnd)) <= np.round(-bbnd.transpose(), len(bnd))).all():
-            # if (np.round(np.dot(Abnd, pnt.transpose()), 8) <= np.round(-bbnd.transpose(), 8)).all():
-                import pdb; pdb.set_trace()
-                pnts.append(pnt.tolist())
-                i += 1
-        
-        pnts = np.array(pnts)
-        # self.create_buildings2(bnd, pnts)
-
-        
-        dummy_pts = np.array([[100, 100], [100, -100], [-100, 0]])
-        # dummy_pts = np.array([[1000, 1000], [1000, -1000], [-1000, 0]])
-        gn_pnts = np.concatenate([pnts, dummy_pts])
-
-        vor = Voronoi(gn_pnts)
-        bnd_poly = Polygon(bnd)
-        vor_polys = []
-
-        for i in range(len(gn_pnts) - 3):
-            vor_poly = [vor.vertices[v] for v in vor.regions[vor.point_region[i]]]
-
-            ########## cal area ##################
-            # area = ConvexHull(vor_poly).volume
-            # print(area)
-            ######################################
-
-            i_cell = bnd_poly.intersection(Polygon(vor_poly))
-            # vor_polys.append(list(i_cell.exterior.coords[:-1]))
-
-            li = list(i_cell.exterior.coords[:-1])
-            
-            
-            polygon = [np.array([*p, 0.0]) for p in li]
-            sorted_pts = self.sort_counter_clockwise(polygon)
-
-            h = random.randint(2, 20) / 100
-            # print(h)
-
-            model_creator = RandomPolygonalPrism(sorted_pts, height=h)
-            model = model_creator.create()
-            scale = 256
-            model.set_scale(scale)
-            # import pdb; pdb.set_trace()
-            model.set_pos(Point3(*model_creator.center * scale))
-
-            colors = [
-                LColor(1, 0, 0, 1),
-                LColor(0, 0, 1, 1),
-                LColor(1, 1, 0, 1),
-                LColor(0, 0.5, 0, 1),
-                LColor(1, 0.549, 0, 1),
-                LColor(1, 0, 1, 1),
-                LColor(0.501, 0, 0.501, 1),
-                LColor(0, 1, 0, 1),
-                LColor(0.54, 0.16, 0.88, 1),
-                LColor(0, 0.74, 1, 1)
-            ]
-            color = random.choice(colors)
-
-            model.set_color(color)
-            model.reparent_to(self.render)
-
-
-
-
-        # return np.array(pnts)
-
-    # def change_uv(self, segs):
-    #     points = (segs + 1) * (segs + 1)
-
-    #     # bottom
-    #     u_end, v_end = 1 / 4, 1 / 2
-
-    #     for i in range(points):
-    #         u = u_end - (segs - i % (segs + 1)) * (0.25 / segs)
-    #         v = v_end - i // (segs + 1) * (0.5 / segs)
-    #         yield (u, v)
-
-    #     # top
-    #     u_end, v_end = 1 / 2, 1 / 2
-
-    #     for i in range(points):
-    #         u = u_end - (segs - i % (segs + 1)) * (0.25 / segs)
-    #         v = v_end - (segs - i // (segs + 1)) * (0.5 / segs)
-    #         yield (u, v)
-
-    #     # back
-    #     u_end, v_end = 1 / 4, 1
-
-    #     for i in range(points):
-    #         u = u_end - (segs - i // (segs + 1)) * (0.25 / segs)
-    #         v = v_end - (segs - i % (segs + 1)) * (0.5 / segs)
-    #         yield (u, v)
-
-    #     # front
-    #     u_end, v_end = 0.5, 1
-
-    #     for i in range(points):
-    #         u = u_end - i // (segs + 1) * (0.25 / segs)
-    #         v = v_end - (segs - i % (segs + 1)) * (0.5 / segs)
-    #         yield (u, v)
-
-    #     # left
-    #     u_end, v_end = 0.75, 1
-
-    #     for i in range(points):
-    #         u = u_end - i % (segs + 1) * (0.25 / segs)
-    #         v = v_end - (segs - i // (segs + 1)) * (0.5 / segs)
-    #         yield (u, v)
-
-    #     # right
-    #     u_end, v_end = 1.0, 1.0
-
-    #     for i in range(points):
-    #         u = u_end - (segs - i % (segs + 1)) * (0.25 / segs)
-    #         v = v_end - (segs - i // (segs + 1)) * (0.5 / segs)
-    #         yield (u, v)
-
-    # def get_tex_creator(self, file_path, noise_type, grid, size):
-    #     if file_path:
-    #         tex_creator = TextureAtlasReader(file_path)
-    #         return tex_creator
-
-    #     match noise_type:
-
-    #         case NoiseType.VORONOI:
-    #             tex_creator = TextureAtlasGenerator.from_voronoi(grid, size)
-
-    #         case NoiseType.EDGES:
-    #             tex_creator = TextureAtlasGenerator.from_voronoi_edges(grid, size)
-
-    #         case NoiseType.ROUNDED:
-    #             tex_creator = TextureAtlasGenerator.from_voronoi_round_edges(grid, size)
-
-    #         case NoiseType.TRANSPARENT:
-    #             edge_color = [0, 0, 255]
-    #             tex_creator = TextureAtlasGenerator.from_transparent_round_edges(edge_color, grid, size)
-
-    #         case _:
-    #             raise NoiseTypeErrpr(noise_type)
-
-    #     return tex_creator
-
-    # def create_texture(self, file_path, noise_type, grid, size):
-    #     tex_creator = self.get_tex_creator(file_path, noise_type, grid, size)
-    #     img = tex_creator.generate_texture()
-    #     y, x, z = img.shape
-    #     fmt = Texture.F_rgb if z == 3 else Texture.F_rgba
-
-    #     tex = Texture('tex_image')
-    #     tex.setup_2d_texture(
-    #         x_size=x,
-    #         y_size=y,
-    #         component_type=Texture.T_unsigned_byte,
-    #         format=fmt
-    #     )
-
-    #     tex.set_ram_image(img)
-    #     return tex
-
-    # def create_box(self, file_path, noise_type, tex_grid, tex_size, box_size, box_segs):
-    #     # create box model.
-    #     box_maker = Box(
-    #         width=box_size,
-    #         depth=box_size,
-    #         height=box_size,
-    #         segs_d=box_segs,
-    #         segs_w=box_segs,
-    #         segs_z=box_segs
-    #     )
-
-    #     self.box = box_maker.create()
-    #     self.box.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
-    #     # self.box.reparent_to(self.render)
-    #     self.box.set_transparency(TransparencyAttrib.MAlpha)
-
-    #     # merge the textures for the different sides into an atlas texture.
-    #     tex = self.create_texture(file_path, noise_type, tex_grid, tex_size)
-
-    #     # change the UV coordinates of the box so as to point to the respective area in the texture.
-    #     geom_node = self.box.node()
-    #     geom = geom_node.modify_geom(0)
-    #     vdata = geom.modify_vertex_data()
-    #     vdata_arr = vdata.modify_array(0)
-    #     vdata_mem = memoryview(vdata_arr).cast('B').cast('f')
-
-    #     for i, (u, v) in enumerate(self.change_uv(box_segs)):
-    #         idx = i * box_maker.stride
-    #         vdata_mem[idx + 10] = u
-    #         vdata_mem[idx + 11] = v
-
-    #     # set the atlas texture to the box.
-    #     tex.set_wrap_u(Texture.WM_clamp)
-    #     tex.set_wrap_v(Texture.WM_clamp)
-    #     tex.set_magfilter(Texture.FTNearest)
-    #     tex.set_minfilter(Texture.FTNearest)
-    #     self.box.set_texture(tex)
+        pnts = np.array([
+            [0.13263839, 0.24470754],
+            [0.0463067, 0.62523463],
+            [0.29250558, 0.52613095],
+            [0.6029066, 0.46856697],
+            [0.90166906, 0.01566895],
+            [0.67575255, 0.21000379],
+            [0.66646577, 0.75574618],
+            [0.05895997, 0.81893289],
+            [0.17170195, 0.43868171],
+            [0.0187921, 0.64751741]
+        ])
+        for region in BoundedVoronoiGenerator(pnts):
+            poly_pts = np.array([pt for pt in ConvexPolygonGenerator(region)])
+
+            for pts in BoundedVoronoiGenerator(pts=poly_pts, bnd=region, shrink=None):
+                polygon = np.insert(pts, pts.shape[1], 0, axis=1)
+                sorted_pts = self.sort_counter_clockwise(polygon)
+
+                h = random.randint(2, 20) / 100
+
+                model_creator = RandomPolygonalPrism(sorted_pts, height=h)
+                model = model_creator.create()
+                scale = 256
+                model.set_scale(scale)
+
+                model.set_pos(Point3(*model_creator.center * scale))
+
+                colors = [
+                    LColor(1, 0, 0, 1),
+                    LColor(0, 0, 1, 1),
+                    LColor(1, 1, 0, 1),
+                    LColor(0, 0.5, 0, 1),
+                    LColor(1, 0.549, 0, 1),
+                    LColor(1, 0, 1, 1),
+                    LColor(0.501, 0, 0.501, 1),
+                    LColor(0, 1, 0, 1),
+                    LColor(0.54, 0.16, 0.88, 1),
+                    LColor(0, 0.74, 1, 1)
+                ]
+                color = random.choice(colors)
+
+                model.set_color(color)
+                model.reparent_to(self.render)
 
     def mouse_click(self):
         self.dragging = True
