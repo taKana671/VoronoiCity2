@@ -1,0 +1,90 @@
+from scipy.spatial import ConvexHull, Voronoi
+from shapely.geometry import Polygon
+
+import math
+import numpy as np
+import random
+
+
+class BoundedVoronoiGenerator:
+
+    def __init__(self, cnt_points=30, shrink=0.02):
+        self.cnt_points = cnt_points
+        self.shrink = shrink
+
+    def __iter__(self):
+        bnd = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
+        pts = np.random.rand(self.cnt_points, 2)
+        dummy_pts = np.array([[100, 100], [100, -100], [-100, 0]])
+        conc_pts = np.concatenate([pts, dummy_pts])
+
+        vor = Voronoi(conc_pts)
+        bnd_poly = Polygon(bnd)
+
+        for i in range(len(conc_pts) - len(dummy_pts)):
+            vor_poly = [vor.vertices[v] for v in vor.regions[vor.point_region[i]]]
+            poly = Polygon(vor_poly)
+
+            if self.shrink:
+                if (shrunk_poly := poly.buffer(-self.shrink)).is_empty:
+                    continue
+                poly = shrunk_poly
+
+            cell = bnd_poly.intersection(poly)
+            yield np.array(list(cell.exterior.coords[:-1]))
+
+
+class ConvexPolygonGenerator:
+
+    def __init__(self, bnd):
+        self.bnd = bnd
+
+    def get_cnt_pints_from_area(self, bnd_hull):
+        if (area := bnd_hull.area) < 0.02:
+            return 2
+        elif area < 0.03:
+            return 3
+        elif area < 0.04:
+            return 4
+        elif area < 0.05:
+            return 5
+        elif area < 0.06:
+            return 6
+        elif area < 0.07:
+            return 7
+        elif area < 0.08:
+            return 8
+        elif area < 0.09:
+            return 9
+        else:
+            return 10
+
+    def __iter__(self):
+        bnd_hull = ConvexHull(self.bnd)
+
+        bnd_tmp = bnd_hull.equations
+        bndMat = np.matrix(bnd_tmp)
+        a_bnd = np.array(bndMat[:, 0:2])
+        b_bnd = np.array(bndMat[:, 2])
+
+        xmin = np.min(self.bnd[:, 0])
+        xmax = np.max(self.bnd[:, 0])
+        ymin = np.min(self.bnd[:, 1])
+        ymax = np.max(self.bnd[:, 1])
+
+        i = 0
+        n = self.get_cnt_pints_from_area(bnd_hull)
+        # pts = []
+
+        while i < n:
+            pt = np.random.rand(2)
+            pt[0] = xmin + (xmax - xmin) * pt[0]
+            pt[1] = ymin + (ymax - ymin) * pt[1]
+
+            if (np.round(np.dot(a_bnd, pt.transpose()), len(self.bnd)) <= np.round(-b_bnd.transpose(), len(self.bnd))).all():
+            # if (np.round(np.dot(Abnd, pnt.transpose()), 8) <= np.round(-bbnd.transpose(), 8)).all():
+                # pts.append(pt.tolist())
+                yield pt
+                i += 1
+        
+        # pnts = np.array(pts)
