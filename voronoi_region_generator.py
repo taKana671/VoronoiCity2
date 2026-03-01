@@ -1,14 +1,11 @@
+import numpy as np
 from scipy.spatial import ConvexHull, Voronoi
 from shapely.geometry import Polygon
-
-import math
-import numpy as np
-import random
 
 
 class BoundedVoronoiGenerator:
 
-    def __init__(self, pts=None, bnd=None, cnt_points=30, shrink=0.02):
+    def __init__(self, pts=None, bnd=None, cnt_points=10, shrink=0.02):
         self.shrink = shrink
         self.pts = pts
         self.bnd = bnd
@@ -36,8 +33,7 @@ class BoundedVoronoiGenerator:
                 poly = shrunk_poly
 
             cell = bnd_poly.intersection(poly)
-            # yield list(cell.exterior.coords[:-1])
-            yield np.array(list(cell.exterior.coords[:-1]))
+            yield np.array(cell.exterior.coords[:-1])
 
 
 class ConvexPolygonGenerator:
@@ -45,7 +41,7 @@ class ConvexPolygonGenerator:
     def __init__(self, bnd):
         self.bnd = bnd
 
-    def get_cnt_pints_from_area(self, bnd_hull):
+    def get_cnt_points_from_area(self, bnd_hull):
         if (area := bnd_hull.volume) < 0.02:
             return 2
         elif area < 0.03:
@@ -66,10 +62,8 @@ class ConvexPolygonGenerator:
             return 10
 
     def __iter__(self):
-    # def get_polygon(self):
-
         bnd_hull = ConvexHull(self.bnd)
-        n = self.get_cnt_pints_from_area(bnd_hull)
+        cnt_pts = self.get_cnt_points_from_area(bnd_hull)
 
         bnd_tmp = bnd_hull.equations
         bnd_mat = np.matrix(bnd_tmp)
@@ -82,17 +76,13 @@ class ConvexPolygonGenerator:
         ymax = np.max(self.bnd[:, 1])
 
         i = 0
-        pts = []
 
-        while i < n:
+        while i < cnt_pts:
             pt = np.random.rand(2)
             pt[0] = xmin + (xmax - xmin) * pt[0]
             pt[1] = ymin + (ymax - ymin) * pt[1]
+            n = len(self.bnd)
 
-            if (np.round(np.dot(a_bnd, pt.transpose()), len(self.bnd)) <= np.round(-b_bnd.transpose(), len(self.bnd))).all():
-            # if (np.round(np.dot(bnd, pnt.transpose()), 8) <= np.round(-bbnd.transpose(), 8)).all():
-                # pts.append(pt.tolist())
+            if (np.round(np.dot(a_bnd, pt.transpose()), n) <= np.round(-b_bnd.transpose(), n)).all():
                 yield pt
                 i += 1
-        
-        # return np.array(pts)

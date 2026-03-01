@@ -7,9 +7,6 @@ import math
 import numpy as np
 import random
 
-from shapes import RandomPolygonalPrism
-from voronoi_region_generator import BoundedVoronoiGenerator, ConvexPolygonGenerator
-
 from direct.gui.DirectWaitBar import DirectWaitBar
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
@@ -18,6 +15,7 @@ from panda3d.core import Point3, NodePath, Vec3, Vec2, LColor
 from panda3d.core import AntialiasAttrib, TransparencyAttrib, Texture
 from panda3d.core import AmbientLight, DirectionalLight
 
+from scene import Scene
 
 
 class Status(Enum):
@@ -62,7 +60,7 @@ class Progress(DirectWaitBar):
         self['value'] += 1
 
 
-class VoronoiCube(ShowBase):
+class VoronoiCity2(ShowBase):
     """A class to apply different textures to each side of the cube.
         Args:
             file_path (str):
@@ -101,12 +99,7 @@ class VoronoiCube(ShowBase):
         # self.start(file_path, noise_type, tex_grid, tex_size, box_size, box_segs)
         self.status = Status.START
 
-
-        bnd = np.array([[0, 0], [1, 0], [1, 1], [0, 1]])
-        n = 10
-        pnts = np.random.rand(n, 2)
-        self.create_buildings2(bnd, pnts)
-        # self.points_in_convex_polygon()
+        self.scene = Scene()
         self.setup_light()
 
         self.accept('d', self.toggle_wireframe)
@@ -148,94 +141,6 @@ class VoronoiCube(ShowBase):
         self.render.set_light(directional_light)
         directional_light.node().set_shadow_caster(True)
         self.render.set_shader_auto()
-
-    def sort_counter_clockwise(self, points):
-        center = sum(points) / len(points)
-        sorted_pts = sorted(points, key=lambda p: math.atan2(p[1] - center[1], p[0] - center[0]))
-        return sorted_pts
-
-    def create_buildings(self):
-        # import pdb; pdb.set_trace()
-        points = np.random.rand(30, 2)
-        vor = Voronoi(points)
-        for i, region_idx in enumerate(vor.point_region):
-            region = vor.regions[region_idx]
-
-            if -1 not in region and len(region) > 0:
-                polygon = [vor.vertices[i] for i in region]
-
-                polygon = [np.array([*p, 0.0]) for p in polygon]
-                sorted_pts = self.sort_counter_clockwise(polygon)
-
-                h = random.randint(2, 20) / 10
-                model_creator = RandomPolygonalPrism(sorted_pts, height=h)
-                model = model_creator.create()
-                model.set_scale(10)
-                # import pdb; pdb.set_trace()
-                model.set_pos(Point3(*model_creator.center * 10))
-
-                colors = [
-                    LColor(1, 0, 0, 1),
-                    LColor(0, 0, 1, 1),
-                    LColor(1, 1, 0, 1),
-                    LColor(0, 0.5, 0, 1),
-                    LColor(1, 0.549, 0, 1),
-                    LColor(1, 0, 1, 1),
-                    LColor(0.501, 0, 0.501, 1),
-                    LColor(0, 1, 0, 1),
-                    LColor(0.54, 0.16, 0.88, 1),
-                    LColor(0, 0.74, 1, 1)
-                ]
-                color = random.choice(colors)
-
-                model.set_color(color)
-                model.reparent_to(self.render)
-
-    def create_buildings2(self, bnd, pnts):
-        pnts = np.array([
-            [0.13263839, 0.24470754],
-            [0.0463067, 0.62523463],
-            [0.29250558, 0.52613095],
-            [0.6029066, 0.46856697],
-            [0.90166906, 0.01566895],
-            [0.67575255, 0.21000379],
-            [0.66646577, 0.75574618],
-            [0.05895997, 0.81893289],
-            [0.17170195, 0.43868171],
-            [0.0187921, 0.64751741]
-        ])
-        for region in BoundedVoronoiGenerator(pnts):
-            poly_pts = np.array([pt for pt in ConvexPolygonGenerator(region)])
-
-            for pts in BoundedVoronoiGenerator(pts=poly_pts, bnd=region, shrink=None):
-                polygon = np.insert(pts, pts.shape[1], 0, axis=1)
-                sorted_pts = self.sort_counter_clockwise(polygon)
-
-                h = random.randint(2, 20) / 100
-
-                model_creator = RandomPolygonalPrism(sorted_pts, height=h)
-                model = model_creator.create()
-                scale = 256
-                model.set_scale(scale)
-
-                model.set_pos(Point3(*model_creator.center * scale))
-
-                colors = [
-                    LColor(1, 0, 0, 1),
-                    LColor(0, 0, 1, 1),
-                    LColor(1, 1, 0, 1),
-                    LColor(0, 0.5, 0, 1),
-                    LColor(1, 0.549, 0, 1),
-                    LColor(1, 0, 1, 1),
-                    LColor(0.501, 0, 0.501, 1),
-                    LColor(0, 1, 0, 1),
-                    LColor(0.54, 0.16, 0.88, 1),
-                    LColor(0, 0.74, 1, 1)
-                ]
-                color = random.choice(colors)
-
-                model.set_color(color)
-                model.reparent_to(self.render)
 
     def mouse_click(self):
         self.dragging = True
@@ -310,5 +215,5 @@ class VoronoiCube(ShowBase):
 
 
 if __name__ == '__main__':
-    app = VoronoiCube()
+    app = VoronoiCity2()
     app.run()
