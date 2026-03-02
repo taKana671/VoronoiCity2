@@ -4,6 +4,7 @@ import random
 import numpy as np
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import Point3, LColor, Vec3
+from panda3d.core import TextureStage, Texture
 
 from shapes import RandomPolygonalPrism
 from shapes import Plane
@@ -15,47 +16,77 @@ class Buildings(NodePath):
     def __init__(self):
         super().__init__(PandaNode('buildings'))
 
-    def create_model(self, pts):
+    def round_off(self, number, ndigits=0):
+        p = 10 ** ndigits
+        return (number * p * 2 + 1) // 2 / p
+
+    def create_model(self, arr):
+        # import pdb; pdb.set_trace()
         # h = random.randint(2, 20) / 100
-        h = random.randint(5, 50) / 256
-        model_creator = RandomPolygonalPrism(pts, height=h)
+        h = random.randint(10, 100) / 256
+        model_creator = RandomPolygonalPrism([pt for pt in arr], height=h)
         model = model_creator.create()
 
         scale = 256
         pos = Point3(*model_creator.center * scale)
         model.set_pos_hpr_scale(pos, Vec3(), scale)
 
-        # colors = [
-        #     LColor(1, 0, 0, 1),
-        #     LColor(0, 0, 1, 1),
-        #     LColor(1, 1, 0, 1),
-        #     LColor(0, 0.5, 0, 1),
-        #     LColor(1, 0.549, 0, 1),
-        #     LColor(1, 0, 1, 1),
-        #     LColor(0.501, 0, 0.501, 1),
-        #     LColor(0, 1, 0, 1),
-        #     LColor(0.54, 0.16, 0.88, 1),
-        #     LColor(0, 0.74, 1, 1)
-        # ]
-        # color = random.choice(colors)
+        # perimeter = self.calc_perimeter(arr)
+        # print(perimeter)
+        ts = TextureStage.get_default()
+        # import pdb; pdb.set_trace()
 
-        # model.set_color(color)
-        model.set_texture(base.loader.load_texture('textures/building.png'))
+        # su = 1 if (scaled := perimeter * scale <= 300) else scaled / 300
+        su = (model_creator.edge_length * scale) / 50
+        su = self.round_off(su)
+        sv_org = (h * scale) / 50
+
+        # if sv < 0.5:
+        #     sv = 0.25
+        # elif sv < 0.75:
+        #     sv = 0.5
+        # elif sv < 1:
+        #     sv = 0.75
+        # else:
+        #     sv = self.round_off(sv)
+        if (sv := self.round_off(sv_org)) == 0:
+            sv = 0.25
+
+        print(sv_org, sv)
+        # import pdb; pdb.set_trace()
+        model.set_tex_scale(ts, (su, sv))
+
+        
+        tex = base.loader.load_texture('textures/building.png')
+        tex.setWrapU(Texture.WM_repeat)
+        tex.setWrapV(Texture.WM_repeat)
+        
+        model.set_texture(tex)
         model.reparent_to(self)
 
         model_creator.height = 3 / 256
         roof_model = model_creator.create()
         roof_model.set_scale(scale)
-        roof_model.set_texture(base.loader.load_texture('textures/metal2.png'))
+        roof_model.set_texture(base.loader.load_texture('textures/metal_02.png'))
         # import pdb; pdb.set_trace()
         pos = Point3(pos.x, pos.y, h * scale)
         roof_model.set_pos(pos)
         roof_model.reparent_to(self)
 
-    def sort_counter_clockwise(self, points):
-        center = sum(points) / len(points)
-        sorted_pts = sorted(points, key=lambda p: math.atan2(p[1] - center[1], p[0] - center[0]))
+    # def calc_perimeter(self, arr):
+    #     edges = np.diff(arr, axis=0, append=[arr[0]])
+    #     edge_lengths = np.sqrt(np.sum(edges ** 2, axis=1))
+    #     return np.sum(edge_lengths)
+
+    def sort_counter_clockwise(self, arr):
+        center = np.mean(arr, axis=0)
+        angles = np.arctan2(arr[:, 1] - center[1], arr[:, 0] - center[0])
+        sorted_indices = np.argsort(angles)
+        sorted_pts = arr[sorted_indices]
         return sorted_pts
+        # center = sum(points) / len(points)
+        # sorted_pts = sorted(points, key=lambda p: math.atan2(p[1] - center[1], p[0] - center[0]))
+        # return sorted_pts
 
     def build(self):
         # pnts = np.array([
