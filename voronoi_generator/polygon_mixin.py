@@ -23,3 +23,7 @@ class PolygonMixin:
         sorted_indices = np.argsort(angles)
         sorted_pts = arr[sorted_indices]
         return sorted_pts
+
+    def round_off(self, number, ndigits=0):
+        p = 10 ** ndigits
+        return (number * p * 2 + 1) // 2 / p

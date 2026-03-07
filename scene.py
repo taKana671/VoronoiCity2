@@ -1,22 +1,20 @@
-import math
 import random
 
 import numpy as np
 from panda3d.core import NodePath, PandaNode
-from panda3d.core import Point3, LColor, Vec3
-from panda3d.core import TextureStage, Texture, TransformState
-from shapely.geometry import Polygon
+from panda3d.core import Point3, Vec3
+from panda3d.core import TextureStage, TransformState
 
 from shapes import RandomPolygonalPrism
 from shapes import Plane, Cylinder
 
-from voronoi_region_generator import BoundedVoronoiGenerator, ConvexPolygonGenerator
-from polygon_mixin import PolygonMixin
+from voronoi_generator.voronoi_2d import BoundedVoronoiGenerator, ConvexPolygonGenerator
+from voronoi_generator.polygon_mixin import PolygonMixin
 
 
 class PineTree(NodePath):
 
-    def __init__(self, model, name, scale=2):
+    def __init__(self, model, name, scale=1.6):
         super().__init__(PandaNode(name))
         tree = model.copy_to(self)
         tree.set_transform(TransformState.make_pos(Vec3(0, 0, -4)))
@@ -34,10 +32,6 @@ class SquareTownBuilder(PolygonMixin):
         self.spot_tex = base.loader.load_texture('textures/concrete_01.jpg')
         self.grass_tex = base.loader.load_texture('textures/grass_04.jpg')
         self.tree_model = base.loader.load_model('models/pinetree/tree2.bam')
-
-    def round_off(self, number, ndigits=0):
-        p = 10 ** ndigits
-        return (number * p * 2 + 1) // 2 / p
 
     def build(self):
         for i, region in enumerate(BoundedVoronoiGenerator()):
@@ -87,7 +81,7 @@ class SquareTownBuilder(PolygonMixin):
             dist = (x ** 2 + y ** 2) ** 0.5
             if dist < inner_radius:
                 tree = PineTree(self.tree_model, f'tree_{i}')
-                tree_pos = pos + Vec3(x, y, 8.5)
+                tree_pos = pos + Vec3(x, y, 6.5)
                 tree.set_pos(tree_pos)
                 tree.reparent_to(nd)
 
@@ -138,11 +132,6 @@ class SquareTownBuilder(PolygonMixin):
 
         return nd
 
-    # def calc_perimeter(self, arr):
-    #     edges = np.diff(arr, axis=0, append=[arr[0]])
-    #     edge_lengths = np.sqrt(np.sum(edges ** 2, axis=1))
-    #     return np.sum(edge_lengths)
-
 
 class Ground(NodePath):
 
@@ -163,7 +152,9 @@ class Scene(NodePath):
 
         self.ground = Ground()
         self.ground.reparent_to(self)
+        self.build_town()
 
+    def build_town(self):
         self.buildings_root = NodePath('buildings')
         builder = SquareTownBuilder()
 
