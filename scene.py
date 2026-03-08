@@ -2,8 +2,12 @@ import random
 
 import numpy as np
 from panda3d.core import NodePath, PandaNode
-from panda3d.core import Point3, Vec3
+from panda3d.core import Point3, Vec3, BitMask32
 from panda3d.core import TextureStage, TransformState
+
+from panda3d.bullet import BulletRigidBodyNode
+from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
+from panda3d.bullet import BulletConvexHullShape, BulletCylinderShape, ZUp
 
 from shapes import RandomPolygonalPrism
 from shapes import Plane, Cylinder
@@ -12,14 +16,51 @@ from voronoi_generator.voronoi_2d import BoundedVoronoiGenerator, ConvexPolygonG
 from voronoi_generator.polygon_mixin import PolygonMixin
 
 
-class PineTree(NodePath):
+class Building(NodePath):
 
-    def __init__(self, model, name, scale=1.6):
-        super().__init__(PandaNode(name))
+    def __init__(self, serial):
+        super().__init__(BulletRigidBodyNode(f'building_{serial}'))
+        self.set_collide_mask(BitMask32.bit(1))
+        self.node().set_mass(0)
+
+    def assemble(self, model, pos):
+        shape = BulletConvexHullShape()
+        shape.add_geom(model.node().get_geom(0))
+        self.node().add_shape(shape, TransformState.make_pos(pos))
+        model.set_pos(pos)
+        model.reparent_to(self)
+
+
+class Garden(NodePath):
+
+    def __init__(self, serial):
+        super().__init__(BulletRigidBodyNode(f'garden_{serial}'))
+        self.set_collide_mask(BitMask32.bit(1))
+        self.node().set_mass(0)
+
+    def assemble(self, model, pos, is_convex=True):
+        if is_convex:
+            shape = BulletConvexHullShape()
+            shape.add_geom(model.node().get_geom(0))
+        else:
+            mesh = BulletTriangleMesh()
+            mesh.add_geom(model.node().get_geom(0))
+            shape = BulletTriangleMeshShape(mesh, dynamic=False)
+
+        self.node().add_shape(shape, TransformState.make_pos(pos))
+        model.set_pos(pos)
+        model.reparent_to(self)
+
+    def plant_tree(self, model, pos):
         tree = model.copy_to(self)
         tree.set_transform(TransformState.make_pos(Vec3(0, 0, -4)))
+
+        end, tip = tree.get_tight_bounds()
+        height = (tip - end).z
+        shape = BulletCylinderShape(0.5, height, ZUp)
+        self.node().add_shape(shape, TransformState.make_pos(pos))
+        tree.set_pos_hpr_scale(pos, Vec3(), 1.6)
         tree.reparent_to(self)
-        self.set_scale(scale)
 
 
 class SquareTownBuilder(PolygonMixin):
@@ -59,19 +100,16 @@ class SquareTownBuilder(PolygonMixin):
         if (n := int(inner_radius) - 2) <= 0:
             return None
 
-        nd = NodePath(f'garden_{serial}')
+        garden_np = Garden(serial)
         # Create the edge of the circular garden.
         spot = Cylinder(spot_rad, inner_radius=inner_radius, height=height).create()
-        pos = Point3(*center, 0) * self.scale
         spot.set_texture(self.spot_tex)
-        spot.set_pos(pos)
-        spot.reparent_to(nd)
+        garden_np.assemble(spot, Point3(0, 0, 0), is_convex=False)
 
         # Create the lawn area of the circular garden
         green = Cylinder(inner_radius, height=height - 0.1).create()
-        green.set_pos(pos)
         green.set_texture(self.grass_tex)
-        green.reparent_to(nd)
+        garden_np.assemble(green, Point3(0, 0, 0))
 
         # Plant trees.
         pos_candidates = random.sample(range(-n, n), 2 * n - 2)
@@ -80,39 +118,33 @@ class SquareTownBuilder(PolygonMixin):
             x, y = pos_candidates[i: i + 2]
             dist = (x ** 2 + y ** 2) ** 0.5
             if dist < inner_radius:
-                tree = PineTree(self.tree_model, f'tree_{i}')
-                tree_pos = pos + Vec3(x, y, 6.5)
-                tree.set_pos(tree_pos)
-                tree.reparent_to(nd)
+                garden_np.plant_tree(self.tree_model, Point3(x, y, 0))
 
-        return nd
+        pos = Point3(*center, 0) * self.scale - Vec3(self.scale / 2, self.scale / 2, 0)
+        garden_np.set_pos(pos)
+        return garden_np
 
     def create_building(self, sorted_pts, serial):
-        nd = NodePath(f'building_{serial}')
+        building_np = Building(serial)
         scaled_pts = sorted_pts * self.scale
         model_creator = RandomPolygonalPrism([pt for pt in scaled_pts])
-
-        # edge_length = model_creator.edge_length
-        pos = Point3(*model_creator.center)
         ts = TextureStage.get_default()
 
         # Create building foundation.
-        foundation_h = 0.04
+        foundation_h = 0.04 * self.scale
         model_creator.height = foundation_h
         foundation = model_creator.create()
-        foundation.set_pos(pos)
 
         su = self.round_off(model_creator.edge_length / 50)
         foundation.set_tex_scale(ts, (su, 1))
         foundation.set_texture(self.foundation_tex)
-        foundation.reparent_to(nd)
+        building_np.assemble(foundation, Point3(0, 0, 0))
 
         # Create building wall.
         wall_h = random.choice([10, 20, 30, 40, 50, 60, 70, 80])
         model_creator.height = wall_h
+        model_creator.segs_a = int(wall_h / 2)
         wall = model_creator.create()
-        wall_pos = Point3(pos.xy, foundation_h)
-        wall.set_pos(wall_pos)
 
         u = model_creator.edge_length / 50
         su = np.ceil(u * 3) / 3
@@ -120,28 +152,37 @@ class SquareTownBuilder(PolygonMixin):
         sv = np.ceil(v * 4) / 4
         wall.set_tex_scale(ts, (su, sv))
         wall.set_texture(self.building_tex)
-        wall.reparent_to(nd)
+        building_np.assemble(wall, Point3(0, 0, foundation_h))
 
         # Create building roof.
         model_creator.height = 3
+        model_creator.segs_a = 3
         roof = model_creator.create()
         roof.set_texture(self.roof_tex)
-        roof_pos = Point3(pos.xy, wall_h + foundation_h)
-        roof.set_pos(roof_pos)
-        roof.reparent_to(nd)
+        roof.set_z(wall_h + foundation_h)
+        building_np.assemble(roof, Point3(0, 0, wall_h + foundation_h))
 
-        return nd
+        pos = Point3(*model_creator.center) - Vec3(self.scale / 2, self.scale / 2, 0)
+        building_np.set_pos(pos)
+        return building_np
 
 
 class Ground(NodePath):
 
     def __init__(self, w=280, d=280, segs_w=16, segs_d=16):
-        super().__init__(PandaNode('ground'))
+        super().__init__(BulletRigidBodyNode('ground'))
         plane = Plane(w, d, segs_w, segs_d)
         self.model = plane.create()
         self.model.set_texture(base.loader.load_texture('textures/concrete_01.jpg'))
-        self.model.set_pos(Point3(128, 128, 0))
         self.model.reparent_to(self)
+
+        mesh = BulletTriangleMesh()
+        mesh.add_geom(self.model.node().get_geom(0))
+        shape = BulletTriangleMeshShape(mesh, dynamic=False)
+        self.node().add_shape(shape)
+
+        self.node().set_mass(0)
+        self.set_collide_mask(BitMask32.bit(1))
 
 
 class Scene(NodePath):
@@ -151,7 +192,9 @@ class Scene(NodePath):
         self.reparent_to(base.render)
 
         self.ground = Ground()
+        self.ground.set_pos(Point3(0, 0, 0))
         self.ground.reparent_to(self)
+        base.world.attach(self.ground.node())
         self.build_town()
 
     def build_town(self):
@@ -160,5 +203,6 @@ class Scene(NodePath):
 
         for building in builder.build():
             building.reparent_to(self.buildings_root)
+            base.world.attach(building.node())
 
-        self.buildings_root.reparent_to(self)
+        self.buildings_root.reparent_to(self.ground)

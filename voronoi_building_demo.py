@@ -10,12 +10,15 @@ import random
 from direct.gui.DirectWaitBar import DirectWaitBar
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
+from direct.showbase.InputStateGlobal import inputState
+from panda3d.bullet import BulletWorld, BulletDebugNode
 from direct.stdpy import threading
-from panda3d.core import Point3, NodePath, Vec3, Vec2, LColor
+from panda3d.core import Point3, NodePath, Vec3, Vec2, LColor, BitMask32
 from panda3d.core import AntialiasAttrib, TransparencyAttrib, Texture
 from panda3d.core import AmbientLight, DirectionalLight
 
 from scene import Scene
+from shapes import Sphere
 
 
 class Status(Enum):
@@ -25,6 +28,17 @@ class Status(Enum):
     FINISH = auto()
     DISPLAY = auto()
     START = auto()
+
+
+class Motions(StrEnum):
+
+    FORWARD = auto()
+    BACKWARD = auto()
+    LEFT = auto()
+    RIGHT = auto()
+    UP = auto()
+    DOWN = auto()
+    TURN = auto()
 
 
 class Progress(DirectWaitBar):
@@ -83,12 +97,16 @@ class VoronoiCity2(ShowBase):
         self.disable_mouse()
         self.render.set_antialias(AntialiasAttrib.MAuto)
 
+        self.world = BulletWorld()
+        self.world.set_gravity(Vec3(0, 0, -9.81))
+        self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
+        self.world.set_debug_node(self.debug.node())
+
+
         self.camera_root = NodePath('camera_root')
         self.camera_root.reparent_to(self.render)
 
-        # self.camera.set_pos(0, -100, 50)
-        self.camera.set_pos(-100, -100, 300)
-        # self.camera.set_pos(0, 0, 50)
+        self.camera.set_pos(-300, -300, 150)
         self.camera.look_at(Point3(100, 100, 0))
         self.camera.reparent_to(self.camera_root)
 
@@ -101,6 +119,22 @@ class VoronoiCity2(ShowBase):
 
         self.scene = Scene()
         self.setup_light()
+
+        # self.sphere = Sphere(radius=0.5).create()
+        # self.sphere.reparent_to(self.render)
+        # self.camera.reparent_to(self.sphere)
+        # self.camera.set_pos(0, 0, 3)
+        # self.camera.look_at(0, 0, 0)
+
+
+        # inputState.watch_with_modifiers(Motions.FORWARD, 'arrow_up')
+        # inputState.watch_with_modifiers(Motions.BACKWARD, 'arrow_down')
+        # inputState.watch_with_modifiers(Motions.LEFT, 'arrow_left')
+        # inputState.watch_with_modifiers(Motions.RIGHT, 'arrow_right')
+        # inputState.watch_with_modifiers(Motions.DOWN, 'd')
+        # inputState.watch_with_modifiers(Motions.UP, 'u')
+
+
 
         self.accept('d', self.toggle_wireframe)
         self.accept('mouse1', self.mouse_click)
@@ -118,13 +152,17 @@ class VoronoiCity2(ShowBase):
         # self.status = Status.SETUP
 
     def toggle_wireframe(self):
-        if self.show_wireframe:
-            self.box.set_render_mode_filled()
+        if self.debug.is_hidden():
+            self.debug.show()
         else:
-            self.box.set_render_mode_wireframe()
+            self.debug.hide()
+        # if self.show_wireframe:
+        #     self.scene.ground.set_render_mode_filled()
+        # else:
+        #     self.scene.ground.set_render_mode_wireframe()
 
-        # self.toggle_wireframe()
-        self.show_wireframe = not self.show_wireframe
+        # # self.toggle_wireframe()
+        # self.show_wireframe = not self.show_wireframe
 
     def setup_light(self):
         ambient_light = NodePath(AmbientLight('ambient_light'))
@@ -169,6 +207,58 @@ class VoronoiCity2(ShowBase):
 
         self.before_mouse_pos = Vec2(mouse_pos.xy)
 
+    def watch_keyboard(self):
+        direction = Vec3()
+
+        if inputState.is_set(Motions.FORWARD):
+            direction.y += 1
+
+        if inputState.is_set(Motions.BACKWARD):
+            direction.y -= 1
+
+        if inputState.is_set(Motions.LEFT):
+            direction.x += 1
+
+        if inputState.is_set(Motions.RIGHT):
+            direction.x -= 1
+
+        if inputState.is_set(Motions.UP):
+            direction.z += 1
+
+        if inputState.is_set(Motions.DOWN):
+            direction.z -= 1
+
+        return direction
+    
+    def control(self, direction, dt):
+        current_pos = self.sphere.get_pos()
+        distance = 30 * dt
+        forward_vec = self.sphere.get_quat(base.render).get_forward()
+
+        next_pos = self.sphere.get_pos() + forward_vec * direction.y * distance
+        next_pos.z += direction.z * distance
+
+        # if self.detect_collosion(current_pos, next_pos):
+        #     return
+
+        # if below := self.cast_cay(next_pos, next_pos + Vec3(0, 0, -1.5)):
+        # if (next_z := below.z + 1.0) > next_pos.z:
+        # next_pos.z = next_z
+
+        # if top := self.cast_cay(next_pos, next_pos + Vec3(0, 0, 1.5)):
+            # if (next_z := top.z - 1.0) < next_pos.z:
+                # next_pos.z = next_z
+
+        if direction.x:
+            self.turn(dt, direction)
+
+        self.sphere.set_pos(next_pos)
+
+    def turn(self, dt, direction):
+        angle = 20 * dt * direction.x
+        self.sphere.set_h(self.sphere.get_h() + angle)
+
+
     def update(self, task):
         dt = globalClock.get_dt()
 
@@ -179,6 +269,9 @@ class VoronoiCity2(ShowBase):
                 if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
                     self.rotate_camera(mouse_pos, dt)
 
+
+        # direction = self.watch_keyboard()
+        # self.control(direction, dt)
 
         # match self.status:
 
@@ -211,6 +304,7 @@ class VoronoiCity2(ShowBase):
         #         self.voronoi_thread.start()
         #         self.status = Status.SETUP
 
+        self.world.do_physics(dt)
         return task.cont
 
 
