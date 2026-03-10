@@ -7,8 +7,7 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 from direct.interval.IntervalGlobal import Sequence, Func
 from panda3d.bullet import BulletWorld, BulletDebugNode
-from panda3d.bullet import BulletSphereShape
-from panda3d.core import Point3, Vec3, Vec2, BitMask32
+from panda3d.core import Point3, Vec3, Vec2
 from panda3d.core import NodePath
 from panda3d.core import AntialiasAttrib, TransparencyAttrib
 from panda3d.core import load_prc_file_data
@@ -26,11 +25,6 @@ load_prc_file_data("", """
     stm-max-chunk-count 2048
     framebuffer-multisample 1
     multisamples 2""")
-
-
-# If set to True, the clicked building can be moved or rotated.
-# See if statement in __init__.
-UNDER_CONSTRUCTION = False
 
 
 class Status(Enum):
@@ -59,42 +53,35 @@ class VoronoiCity2(ShowBase):
         self.world.set_debug_node(self.debug.node())
 
         self.scene = Scene()
-        # self.scene.create_city()
-
-        ##################################################
-
-        # !!!!!How about using SimpleNamespace to store setting values and use in fade_camera,  view_while_moving, and view_from_sky?
-        self.sky_view_config = types.SimpleNamespace()
-
-        # ###########################################
         self.camera_root = NodePath('camera_root')
         self.camera_root.reparent_to(self.render)
 
-        self.camera.set_pos(-300, -300, 150)
-        self.camera.look_at(Point3(100, 100, 0))
-        self.camera.reparent_to(self.camera_root)
+        self.sky_config = types.SimpleNamespace(
+            parent=self.camera_root,
+            pos=Point3(-300, -300, 150),
+            look_at=Point3(100, 100, 0),
+            fov=40,
+            near=1,
+            switch_func=self.view_from_sky
+        )
 
-        # ###########################################
-
-        self.test_shape = BulletSphereShape(0.25)
-        # self.sky_pos = Point3(0, -300, 200)
-        self.sky_pos = Point3(-300, -300, 150)
-        # self.ground_pos = Point3(13, -89, 2)
-        self.ground_pos = Point3(-140, -140, 2)
-
-        # self.sky_view_root = NodePath('sky_view_root')
-        # self.sky_view_root.set_pos_hpr(Point3(0, 0, 0), Vec3(140, 0, -0.9))
+        self.ground_config = types.SimpleNamespace(
+            parent=self.render,
+            pos=Point3(-140, -140, 2),
+            look_at=Point3(0, 0, 0),
+            fov=90,
+            near=0.1,
+            switch_func=self.view_while_moving
+        )
 
         self.viewer = Viewer()
-        # self.view_from_sky(self.sky_pos, 40)
         self.viewer.reparent_to(self.render)
         self.world.attach(self.viewer.node())
-        # self.camera.reparent_to(self.viewer)
+        self.view_from_sky()
 
         self.clicked = False
         self.dragging = False
         self.before_mouse_pos = None
-        self.target = None
         self.screen_changed = False
         self.status = Status.ACTIVE
         self.view = View.SKY
@@ -103,8 +90,6 @@ class VoronoiCity2(ShowBase):
         self.accept('mouse1', self.mouse_click)
         self.accept('mouse1-up', self.mouse_release)
         self.accept('t', self.toggle_debug)
-        self.accept('i', self.get_target_info)
-        self.accept('r', self.release_target)
         self.accept('v', self.toggle_view)
         self.accept('w', self.toggle_wireframe)
 
@@ -121,7 +106,8 @@ class VoronoiCity2(ShowBase):
     def toggle_view(self):
         self.status = Status.SCREEN_CHANGE
 
-    def fade_camera(self, parent, pos, look_at, view_func, fov=40, duration=2.0):
+    def fade_camera(self, duration=2.0):
+        config = self.ground_config if self.view == View.SKY else self.sky_config
         self.screen_changed = False
 
         props = self.win.get_properties()
@@ -131,10 +117,10 @@ class VoronoiCity2(ShowBase):
         buffer.set_clear_color((0.5, 0.5, 0.5, 1.0))
 
         temp_cam = self.make_camera(buffer)
-        temp_cam.node().get_lens().set_fov(fov)
-        temp_cam.set_pos(pos)
-        temp_cam.look_at(look_at)
-        temp_cam.reparent_to(parent)
+        temp_cam.node().get_lens().set_fov(config.fov)
+        temp_cam.set_pos(config.pos)
+        temp_cam.look_at(config.look_at)
+        temp_cam.reparent_to(config.parent)
 
         card = buffer.get_texture_card()
         card.reparent_to(self.render2d)
@@ -143,68 +129,36 @@ class VoronoiCity2(ShowBase):
 
         Sequence(
             card.colorScaleInterval(duration, 1, 0, blendType='easeInOut'),
-            Func(view_func, pos, fov),
+            Func(config.switch_func),
             Func(card.remove_node),
             Func(self.graphicsEngine.remove_window, buffer),
             Func(self.end_fade)
         ).start()
 
-    def view_while_moving(self, pos, fov):
-        # self.viewer.set_pos_hpr(pos, Vec3(0, 0, 0))
-        self.viewer.set_pos(pos)
-        self.viewer.look_at(Point3(0, 0, 0))
+    def view_while_moving(self):
+        """Use the keyboard to move around the city.
+        """
+        self.viewer.set_pos(self.ground_config.pos)
+        self.viewer.look_at(self.ground_config.look_at)
 
         self.camera.set_pos_hpr(Point3(0, 0, 0), Vec3(0, 0, 0))
-        # self.camera.look_at(self.viewer)
         self.camera.reparent_to(self.viewer)
 
-        self.camLens.set_fov(fov)
-        self.camLens.set_near_far(0.1, 100000)
+        self.camLens.set_fov(self.ground_config.fov)
+        self.camLens.set_near_far(self.ground_config.near, 100000)
 
-    def view_from_sky(self, pos, fov):
-        # self.viewer.set_pos_hpr(Point3(0, 0, 0), self.sky_view_root.get_hpr())
-        # self.viewer.set_pos_hpr(pos, self.sky_view_root.get_hpr())
-        
-        # self.viewer.look_at(Point3(100, 100, 0))
+    def view_from_sky(self):
+        """View the city from above and rotate it by dragging the mouse.
+        """
         self.camera.reparent_to(self.camera_root)
-        self.camera.set_pos(Point3(Point3(-300, -300, 150)))
-        self.camera.look_at(Point3(100, 100, 0))
-        # self.camera.set_pos(pos)
-        # self.camera.look_at(Point3(0, 0, 0))
-        # self.camera.look_at(Point3(100, 100, 0))
-        self.camLens.set_fov(40)
-        self.camLens.set_near_far(1, 100000)
+        self.camera.set_pos(self.sky_config.pos)
+        self.camera.look_at(self.sky_config.look_at)
+
+        self.camLens.set_fov(self.sky_config.fov)
+        self.camLens.set_near_far(self.sky_config.near, 100000)
 
     def end_fade(self):
         self.screen_changed = True
-
-    def click(self, mouse_pos):
-        print('clicked!')
-        near_pos = Point3()
-        far_pos = Point3()
-        self.camLens.extrude(mouse_pos, near_pos, far_pos)
-
-        from_pos = self.render.get_relative_point(self.cam, near_pos)
-        to_pos = self.render.get_relative_point(self.cam, far_pos)
-
-        if (result := self.world.ray_test_closest(
-                from_pos, to_pos, BitMask32.bit(1))).has_hit():
-
-            match result.get_node().get_tag('category'):
-                case 'ground':
-                    print(result.get_hit_pos())
-
-                case 'object':
-                    print('set target')
-                    self.target = NodePath(result.get_node())
-
-    def release_target(self):
-        if self.target:
-            self.target = None
-
-    def get_target_info(self):
-        if self.target:
-            print(f'pos: {self.target.get_pos()}, hpr: {self.target.get_hpr()}')
 
     def toggle_debug(self):
         if self.debug.is_hidden():
@@ -265,53 +219,13 @@ class VoronoiCity2(ShowBase):
 
         return direction
 
-    def change_screen(self):
-
-        match self.view:
-
-            case View.SKY:
-                parent = self.render
-                pos = self.ground_pos
-                # look_at = self.ground_pos
-                # look_at = Point3(100, 100, 0)
-                look_at = Point3(0, 0, 0)
-                func = self.view_while_moving
-                fov = 90
-
-            case View.GROUND:
-                # parent = self.sky_view_root
-                parent = self.camera_root
-                pos = self.sky_pos
-                # look_at = Point3(0, 0, 0)
-                look_at = Point3(100, 100, 0)
-                func = self.view_from_sky
-                fov = 40
-
-        self.fade_camera(parent, pos, look_at, func, fov)
-
-    def control(self, dt):
-        if self.view == View.GROUND:
-            direction = self.watch_keyboard()
-            self.viewer.control(direction, dt)
-
-        if self.mouseWatcherNode.has_mouse():
-            mouse_pos = self.mouseWatcherNode.get_mouse()
-
-            if self.clicked:
-                self.click(mouse_pos)
-                self.clicked = False
-
-            if self.view == View.SKY and self.dragging:
-                if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
-                    self.rotate_camera(mouse_pos, dt)
-
     def update(self, task):
         dt = globalClock.get_dt()
 
         match self.status:
 
             case Status.SCREEN_CHANGE:
-                self.change_screen()
+                self.fade_camera()
                 self.status = Status.WAITING
 
             case Status.WAITING:
@@ -320,7 +234,16 @@ class VoronoiCity2(ShowBase):
                     self.status = Status.ACTIVE
 
             case Status.ACTIVE:
-                self.control(dt)
+                if self.view == View.GROUND:
+                    direction = self.watch_keyboard()
+                    self.viewer.control(direction, dt)
+
+                if self.mouseWatcherNode.has_mouse():
+                    mouse_pos = self.mouseWatcherNode.get_mouse()
+
+                    if self.view == View.SKY and self.dragging:
+                        if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
+                            self.rotate_camera(mouse_pos, dt)
 
         self.world.do_physics(dt)
         return task.cont

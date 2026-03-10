@@ -1,17 +1,16 @@
 import random
 
 import numpy as np
-from panda3d.core import NodePath, PandaNode
-from panda3d.core import Point3, Vec3, BitMask32
-from panda3d.core import TextureStage, TransformState
-
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletConvexHullShape, BulletCylinderShape, ZUp
+from panda3d.core import NodePath, PandaNode
+from panda3d.core import Point3, Vec3, BitMask32, LColor
+from panda3d.core import TextureStage, TransformState
+from panda3d.core import AmbientLight, DirectionalLight
 
 from shapes import RandomPolygonalPrism
 from shapes import Plane, Cylinder
-
 from voronoi_generator.voronoi_2d import BoundedVoronoiGenerator, ConvexPolygonGenerator
 from voronoi_generator.polygon_mixin import PolygonMixin
 
@@ -196,6 +195,7 @@ class Scene(NodePath):
         self.ground.reparent_to(self)
         base.world.attach(self.ground.node())
         self.build_town()
+        self.setup_light()
 
     def build_town(self):
         self.buildings_root = NodePath('buildings')
@@ -206,3 +206,19 @@ class Scene(NodePath):
             base.world.attach(building.node())
 
         self.buildings_root.reparent_to(self.ground)
+
+    def setup_light(self):
+        ambient_light = NodePath(AmbientLight('ambient_light'))
+        ambient_light.reparent_to(base.render)
+        ambient_light.node().set_color(LColor(0.6, 0.6, 0.6, 1.0))
+        base.render.set_light(ambient_light)
+
+        directional_light = NodePath(DirectionalLight('directional_light'))
+        directional_light.node().get_lens().set_film_size(200, 200)
+        directional_light.node().get_lens().set_near_far(1, 100)
+        directional_light.node().set_color(LColor(1, 1, 1, 1))
+        directional_light.set_pos_hpr(Point3(0, 0, 50), Vec3(-30, -45, 0))
+        # directional_light.node().show_frustom()
+        base.render.set_light(directional_light)
+        directional_light.node().set_shadow_caster(True)
+        base.render.set_shader_auto()
