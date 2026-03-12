@@ -42,7 +42,6 @@ class Viewer(NodePath):
 
         if (result := base.world.sweep_test_closest(
                 self.test_shape, ts_from, ts_to, BitMask32.bit(1), 0.0)).has_hit():
-            # print('detect collision', result.get_node())
             return result
 
     def control(self, direction, dt):

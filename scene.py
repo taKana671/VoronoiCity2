@@ -6,11 +6,11 @@ from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.bullet import BulletConvexHullShape, BulletCylinderShape, ZUp
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import Point3, Vec3, BitMask32, LColor
-from panda3d.core import TextureStage, TransformState
+from panda3d.core import TextureStage, TransformState, TexGenAttrib
 from panda3d.core import AmbientLight, DirectionalLight
 
 from shapes import RandomPolygonalPrism
-from shapes import Plane, Cylinder
+from shapes import Plane, Cylinder, Sphere
 from voronoi_generator.voronoi_2d import BoundedVoronoiGenerator, ConvexPolygonGenerator
 from voronoi_generator.polygon_mixin import PolygonMixin
 
@@ -66,7 +66,11 @@ class SquareTownBuilder(PolygonMixin):
 
     def __init__(self, scale=256):
         self.scale = scale
-        self.foundation_tex = base.loader.load_texture('textures/foundation_2.png')
+        self.wall_heights = [10, 20, 30, 40, 50, 60, 70, 80]
+        self.create_textures()
+
+    def create_textures(self):
+        self.foundation_tex = base.loader.load_texture('textures/foundation.png')
         self.building_tex = base.loader.load_texture('textures/building.png')
         self.roof_tex = base.loader.load_texture('textures/metal_02.png')
         self.spot_tex = base.loader.load_texture('textures/concrete_01.jpg')
@@ -101,9 +105,9 @@ class SquareTownBuilder(PolygonMixin):
 
         garden_np = Garden(serial)
         # Create the edge of the circular garden.
-        spot = Cylinder(spot_rad, inner_radius=inner_radius, height=height).create()
-        spot.set_texture(self.spot_tex)
-        garden_np.assemble(spot, Point3(0, 0, 0), is_convex=False)
+        edge = Cylinder(spot_rad, inner_radius=inner_radius, height=height).create()
+        edge.set_texture(self.spot_tex)
+        garden_np.assemble(edge, Point3(0, 0, 0), is_convex=False)
 
         # Create the lawn area of the circular garden
         green = Cylinder(inner_radius, height=height - 0.1).create()
@@ -140,7 +144,7 @@ class SquareTownBuilder(PolygonMixin):
         building_np.assemble(foundation, Point3(0, 0, 0))
 
         # Create building wall.
-        wall_h = random.choice([10, 20, 30, 40, 50, 60, 70, 80])
+        wall_h = random.choice( self.wall_heights)
         model_creator.height = wall_h
         model_creator.segs_a = int(wall_h / 2)
         wall = model_creator.create()
@@ -184,6 +188,28 @@ class Ground(NodePath):
         self.set_collide_mask(BitMask32.bit(1))
 
 
+class SkyBox(NodePath):
+
+    def __init__(self):
+        super().__init__(PandaNode('skybox'))
+        self.create_skybox()
+
+    def create_skybox(self):
+        self.sphere = Sphere(radius=500).create()
+        self.sphere.set_pos(0, 0, 0)
+        self.sphere.reparent_to(self)
+
+        ts = TextureStage.get_default()
+        self.sphere.set_tex_gen(ts, TexGenAttrib.M_world_cube_map)
+        self.sphere.set_tex_hpr(ts, (0, 180, 0))
+        self.sphere.set_tex_scale(ts, (1, -1))
+
+        self.sphere.set_light_off()
+        self.sphere.set_material_off()
+        imgs = base.loader.load_cube_map('images/skybox/img_#.png')
+        self.sphere.set_texture(imgs)
+
+
 class Scene(NodePath):
 
     def __init__(self):
@@ -194,6 +220,11 @@ class Scene(NodePath):
         self.ground.set_pos(Point3(0, 0, 0))
         self.ground.reparent_to(self)
         base.world.attach(self.ground.node())
+
+        self.sky = SkyBox()
+        self.sky.reparent_to(self)
+        self.sky.set_pos(0, 0, 40)
+
         self.build_town()
         self.setup_light()
 
