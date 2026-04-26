@@ -12,7 +12,7 @@ from panda3d.core import AmbientLight, DirectionalLight
 from shapes import RandomPolygonalPrism
 from shapes import Plane, Cylinder, Sphere
 from voronoi_generator.voronoi_2d import BoundedVoronoiGenerator, ConvexPolygonGenerator
-from voronoi_generator.polygon_mixin import PolygonMixin
+from voronoi_generator.voronoi_2d import Polygon2DMixin
 
 
 class Building(NodePath):
@@ -62,7 +62,7 @@ class Garden(NodePath):
         tree.reparent_to(self)
 
 
-class SquareTownBuilder(PolygonMixin):
+class SquareTownBuilder(Polygon2DMixin):
 
     def __init__(self, scale=256):
         self.scale = scale
@@ -144,7 +144,7 @@ class SquareTownBuilder(PolygonMixin):
         building_np.assemble(foundation, Point3(0, 0, 0))
 
         # Create building wall.
-        wall_h = random.choice( self.wall_heights)
+        wall_h = random.choice(self.wall_heights)
         model_creator.height = wall_h
         model_creator.segs_a = int(wall_h / 2)
         wall = model_creator.create()
