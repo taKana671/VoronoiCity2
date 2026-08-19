@@ -11,7 +11,7 @@ from panda3d.core import AmbientLight, DirectionalLight
 
 from shapes import RandomPolygonalPrism
 from shapes import Plane, Cylinder, Sphere
-from voronoi_generator.voronoi_2d import BoundedVoronoiGenerator, ConvexPolygonGenerator
+from voronoi_generator.voronoi_2d import BoundedVoronoiGenerator, VoronoiSitesGenerator
 from voronoi_generator.voronoi_2d import Polygon2DMixin
 
 
@@ -79,9 +79,9 @@ class SquareTownBuilder(Polygon2DMixin):
 
     def build(self):
         for i, region in enumerate(BoundedVoronoiGenerator()):
-            poly_pts = np.array([pt for pt in ConvexPolygonGenerator(region)])
+            poly_pts = np.array([pt for pt in VoronoiSitesGenerator(region)])
 
-            for j, pts in enumerate(BoundedVoronoiGenerator(pts=poly_pts, bnd=region, shrink=0.003)):
+            for j, pts in enumerate(BoundedVoronoiGenerator(pts=poly_pts, bnd=region, buffer_size_erosion=-0.003)):
                 polygon = np.insert(pts, pts.shape[1], 0, axis=1)
                 serial = f'{i}_{j}'
 
